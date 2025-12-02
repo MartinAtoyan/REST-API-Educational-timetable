@@ -1,17 +1,9 @@
 from database import engine
-
-# Import each model module's Base (they each define their own declarative Base)
-from app.models.lesson import Base as lesson_base
-from app.models.teacher import Base as teacher_base
-from app.models.subject import Base as subject_base
-
+from app.models.base import Base
+import app.models  # noqa: F401, ensures all models are registered
 
 def create_tables():
-    # Create tables for each Base's metadata
-    lesson_base.metadata.create_all(bind=engine)
-    teacher_base.metadata.create_all(bind=engine)
-    subject_base.metadata.create_all(bind=engine)
-
+    Base.metadata.create_all(bind=engine)
 
 if __name__ == "__main__":
     create_tables()

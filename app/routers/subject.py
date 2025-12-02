@@ -1,7 +1,7 @@
 from fastapi import Depends, APIRouter
 from sqlalchemy.orm import Session
 from app.schema import subject as schemas
-from app.models.subject import Subject, Lesson
+from app.models.subject import Subject
 from app.deps import get_db
 
 router = APIRouter()
