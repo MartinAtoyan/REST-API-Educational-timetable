@@ -67,9 +67,9 @@ def main():
         name = TEACHER_NAMES[i % len(TEACHER_NAMES)] + ("" if i < len(TEACHER_NAMES) else f" #{i}")
         payload = {
             "full_name": name,
-            "department": random.choice(["Математика", "Физика", "Информатика", "Гуманитарный"]),
-            "position": random.choice(["Лектор", "Доцент", "Профессор"]),
-            "degree": random.choice(["PhD", "MSc", "Доктор наук", None])
+            "department": random.choice(["Math", "Pyscics", "informatics", "humanitry"]),
+            "position": random.choice(["lecturer", "Doctor", "professor"]),
+            "degree": random.choice(["PhD", "MSc", "Doctor philosofy", None])
         }
         try:
             obj = create_teacher(session, payload)

@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Read DB connection info from environment with sensible defaults
 DB_USER = os.getenv("APP_DB_USER", "timetable_user")
 DB_PASS = os.getenv("APP_DB_PASS", "password123")
 DB_NAME = os.getenv("APP_DB_NAME", "timetable_db")
