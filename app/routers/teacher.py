@@ -1,4 +1,4 @@
-from fastapi import Depends, APIRouter
+from fastapi import Depends, APIRouter, HTTPException
 from sqlalchemy.orm import Session
 from app.schema import teacher as schemas
 from app.models.teacher import Teacher
@@ -23,11 +23,19 @@ def list_teachers(db: Session = Depends(get_db)):
     return db.query(Teacher).all()
 
 
+@router.get("/teachers/{teacher_id}", response_model=schemas.Teacher)
+def get_teacher(teacher_id: int, db: Session = Depends(get_db)):
+    teacher = db.query(Teacher).filter(Teacher.id == teacher_id).first()
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+    return teacher
+
+
 @router.put("/teachers/{teacher_id}", response_model=schemas.Teacher)
 def update_teacher(teacher_id: int, data: schemas.TeacherCreate, db: Session = Depends(get_db)):
     teacher = db.query(Teacher).filter(Teacher.id == teacher_id).first()
     if not teacher:
-        return {"error": "Teacher not found"}
+        raise HTTPException(status_code=404, detail="Teacher not found")
     for key, value in data.dict().items():
         setattr(teacher, key, value)
     db.commit()
@@ -38,7 +46,7 @@ def update_teacher(teacher_id: int, data: schemas.TeacherCreate, db: Session = D
 def delete_teacher(teacher_id: int, db: Session = Depends(get_db)):
     teacher = db.query(Teacher).filter(Teacher.id == teacher_id).first()
     if not teacher:
-        return {"error": "Teacher not found"}
+        raise HTTPException(status_code=404, detail="Teacher not found")
     db.delete(teacher)
     db.commit()
     return {"message": "Teacher deleted"}

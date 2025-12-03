@@ -1,4 +1,4 @@
-from fastapi import Depends, APIRouter
+from fastapi import Depends, APIRouter, HTTPException
 from sqlalchemy.orm import Session
 from app.schema import lesson as schemas
 from app.models.lesson import Lesson
@@ -33,11 +33,19 @@ def list_lessons(db: Session = Depends(get_db)):
     return db.query(Lesson).all()
 
 
+@router.get("/lessons/{lesson_id}", response_model=schemas.Lesson)
+def get_lesson(lesson_id: int, db: Session = Depends(get_db)):
+    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    return lesson
+
+
 @router.put("/lessons/{lesson_id}", response_model=schemas.Lesson)
 def update_lesson(lesson_id: int, data: schemas.LessonCreate, db: Session = Depends(get_db)):
     lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
     if not lesson:
-        return {"error": "Lesson not found"}
+        raise HTTPException(status_code=404, detail="Lesson not found")
     for key, value in data.dict().items():
         setattr(lesson, key, value)
     db.commit()
@@ -48,7 +56,7 @@ def update_lesson(lesson_id: int, data: schemas.LessonCreate, db: Session = Depe
 def delete_lesson(lesson_id: int, db: Session = Depends(get_db)):
     lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
     if not lesson:
-        return {"error": "Lesson not found"}
+        raise HTTPException(status_code=404, detail="Lesson not found")
     db.delete(lesson)
     db.commit()
     return {"message": "Lesson deleted"}
