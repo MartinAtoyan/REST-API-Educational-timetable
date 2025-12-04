@@ -14,4 +14,10 @@ class TeacherCreate(TeacherBase):
 class Teacher(TeacherBase):
     id: int
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+
+class TeacherLessonCount(BaseModel):
+    teacher_id: int
+    teacher_name: str
+    lesson_count: int

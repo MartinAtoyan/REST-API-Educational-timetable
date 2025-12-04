@@ -20,3 +20,15 @@ class Lesson(LessonBase):
     id: int
     class Config:
         orm_mode = True
+
+class LessonWithDetails(Lesson):
+    teacher_name: str
+    subject_name: str
+    
+    class Config:
+        from_attributes = True
+
+
+class UpdateLessonsRequest(BaseModel):
+    min_lesson_count: int = 5
+    new_classroom: str
