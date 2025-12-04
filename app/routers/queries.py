@@ -2,6 +2,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+import sqlalchemy as sa
 from sqlalchemy import func
 from app.deps import get_db
 from app.models import Lesson, Teacher, Subject
@@ -152,3 +153,28 @@ def get_lessons_paginated(
     lessons = query.offset(skip).limit(limit).all()
     
     return lessons
+
+
+@router.get("/subjects/search/", response_model=List[dict])
+def search_subjects(
+    q: str = Query(..., min_length=1, description="Search query"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=200),
+    db: Session = Depends(get_db)
+):
+    
+    sql = sa.text(
+        """
+        SELECT id, name, metadata
+        FROM subjects
+        WHERE name % :q OR (metadata->>'description') % :q
+        ORDER BY greatest(similarity(name, :q), similarity(metadata->>'description', :q)) DESC
+        LIMIT :limit OFFSET :skip
+        """
+    )
+
+    res = db.execute(sql, {"q": q, "limit": limit, "skip": skip}).mappings().all()
+
+    return [
+        {"id": row['id'], "name": row['name'], "metadata": row['metadata']} for row in res
+    ]

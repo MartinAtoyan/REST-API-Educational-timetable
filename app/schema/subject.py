@@ -5,6 +5,7 @@ class SubjectBase(BaseModel):
     hours: int | None = None
     exam_type: str | None = None
     required: str | None = None
+    metadata: dict | None = None
 
 
 class SubjectCreate(SubjectBase):
