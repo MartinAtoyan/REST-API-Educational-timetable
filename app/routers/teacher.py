@@ -1,4 +1,4 @@
-from fastapi import Depends, APIRouter, HTTPException
+from fastapi import Depends, APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.schema import teacher as schemas
 from app.models.teacher import Teacher
@@ -18,9 +18,15 @@ def create_teacher(data: schemas.TeacherCreate, db: Session = Depends(get_db)):
     return teacher
 
 
-@router.get("/teachers", response_model=list[schemas.Teacher])
-def list_teachers(db: Session = Depends(get_db)):
-    return db.query(Teacher).all()
+@router.get("/teachers", response_model=dict)
+def list_teachers(
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(10, ge=1, le=100, description="Number of items to return"),
+    db: Session = Depends(get_db)
+):
+    total = db.query(Teacher).count()
+    items = db.query(Teacher).offset(skip).limit(limit).all()
+    return {"items": items, "total": total, "skip": skip, "limit": limit}
 
 
 @router.get("/teachers/{teacher_id}", response_model=schemas.Teacher)

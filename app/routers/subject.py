@@ -1,4 +1,4 @@
-from fastapi import Depends, APIRouter, HTTPException
+from fastapi import Depends, APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.schema import subject as schemas
 from app.models.subject import Subject
@@ -15,9 +15,15 @@ def create_subject(data: schemas.SubjectCreate, db: Session = Depends(get_db)):
     return subject
 
 
-@router.get("/subjects", response_model=list[schemas.Subject])
-def list_subjects(db: Session = Depends(get_db)):
-    return db.query(Subject).all()
+@router.get("/subjects", response_model=dict)
+def list_subjects(
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(10, ge=1, le=100, description="Number of items to return"),
+    db: Session = Depends(get_db)
+):
+    total = db.query(Subject).count()
+    items = db.query(Subject).offset(skip).limit(limit).all()
+    return {"items": items, "total": total, "skip": skip, "limit": limit}
 
 
 @router.get("/subjects/{subject_id}", response_model=schemas.Subject)

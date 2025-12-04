@@ -1,4 +1,4 @@
-from fastapi import Depends, APIRouter, HTTPException
+from fastapi import Depends, APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.schema import lesson as schemas
 from app.models.lesson import Lesson
@@ -28,9 +28,15 @@ def create_lesson(data: schemas.LessonCreate, db: Session = Depends(get_db)):
     return lesson
 
 
-@router.get("/lessons", response_model=list[schemas.Lesson])
-def list_lessons(db: Session = Depends(get_db)):
-    return db.query(Lesson).all()
+@router.get("/lessons", response_model=dict)
+def list_lessons(
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(10, ge=1, le=100, description="Number of items to return"),
+    db: Session = Depends(get_db)
+):
+    total = db.query(Lesson).count()
+    items = db.query(Lesson).offset(skip).limit(limit).all()
+    return {"items": items, "total": total, "skip": skip, "limit": limit}
 
 
 @router.get("/lessons/{lesson_id}", response_model=schemas.Lesson)
