@@ -1,0 +1,399 @@
+================================================================================
+                    REST API Educational Timetable - GUIDELINE
+================================================================================
+
+PROJECT OVERVIEW
+================================================================================
+A FastAPI-based REST API for managing an educational timetable with:
+- Teachers, Subjects, and Lessons management
+- Complex query endpoints (filtering, joining, grouping, pagination)
+- Full-text search using PostgreSQL trigram indexes (pg_trgm)
+- Database migrations using Alembic
+
+================================================================================
+SETUP & INITIAL CONFIGURATION
+================================================================================
+
+1. CREATE & ACTIVATE VIRTUAL ENVIRONMENT
+   python3.11 -m venv venv
+   source venv/bin/activate
+
+2. INSTALL DEPENDENCIES
+   pip install -r requirements.txt
+
+3. CONFIGURE DATABASE (.env file)
+   Create a .env file in the project root with:
+
+   DB_USER=timetable_user
+   DB_PASSWORD=your_secure_password
+   DB_HOST=127.0.0.1
+   DB_PORT=5432
+   DB_NAME=timetable_db
+
+4. CREATE DATABASE & ROLE (if needed)
+   python init_db.py
+
+   This script creates:
+   - A PostgreSQL role (user)
+   - A database with that user as owner
+
+5. CREATE TABLES
+   python create_tables.py
+
+   This creates all tables based on the SQLAlchemy models.
+
+6. RUN MIGRATIONS
+   python run_migrations.py
+
+   This applies all Alembic migrations, including:
+   - Migration 0001: Add email column to teachers, metadata JSONB to subjects
+   - Migration 0002: Add indexes on teachers.full_name and lessons(date, time)
+   - Migration 0003: Enable pg_trgm extension and create GIN trigram indexes
+
+================================================================================
+RUNNING THE PROJECT
+================================================================================
+
+START THE SERVER
+   uvicorn app.routers.app:app --reload --host 0.0.0.0 --port 8000
+
+   The server will start at: http://0.0.0.0:8000
+   API documentation available at: http://0.0.0.0:8000/docs (Swagger UI)
+
+POPULATE DATABASE WITH SAMPLE DATA
+   python seeder.py
+
+   The seeder creates:
+   - 5 teachers
+   - 10 subjects
+   - 100 lessons (randomly assigned to teachers/subjects)
+
+================================================================================
+API ENDPOINTS - CRUD OPERATIONS
+================================================================================
+
+All list endpoints support pagination with query parameters:
+   ?skip=0&limit=10
+
+Response format for list endpoints:
+   {
+     "items": [...],
+     "total": 150,
+     "skip": 0,
+     "limit": 10
+   }
+
+---TEACHERS---
+
+POST /teachers
+   Create a new teacher
+   Request body:
+   {
+     "full_name": "John Doe",
+     "department": "Mathematics",
+     "position": "Associate Professor",
+     "degree": "PhD",
+     "email": "john@example.com"
+   }
+
+GET /teachers
+   List all teachers (paginated)
+   Query params: skip=0, limit=10
+   
+GET /teachers/{teacher_id}
+   Get a specific teacher by ID
+   
+PUT /teachers/{teacher_id}
+   Update a teacher
+   Request body: same as POST (all fields required)
+   
+DELETE /teachers/{teacher_id}
+   Delete a teacher
+
+---SUBJECTS---
+
+POST /subjects
+   Create a new subject
+   Request body:
+   {
+     "name": "Mathematics 101",
+     "hours": 60,
+     "exam_type": "Written",
+     "required": "Yes",
+     "metadata": {
+       "description": "Introduction to calculus",
+       "difficulty": "intermediate"
+     }
+   }
+
+GET /subjects
+   List all subjects (paginated)
+   Query params: skip=0, limit=10
+
+GET /subjects/{subject_id}
+   Get a specific subject by ID
+
+PUT /subjects/{subject_id}
+   Update a subject
+   Request body: same as POST (all fields required)
+
+DELETE /subjects/{subject_id}
+   Delete a subject
+
+---LESSONS---
+
+POST /lessons
+   Create a new lesson
+   Request body:
+   {
+     "date": "2025-12-04",
+     "time": "10:30:00",
+     "classroom": "Room 101",
+     "group": "Group A",
+     "lesson_type": "Lecture",
+     "teacher_id": 1,
+     "subject_id": 1
+   }
+
+GET /lessons
+   List all lessons (paginated)
+   Query params: skip=0, limit=10
+
+GET /lessons/{lesson_id}
+   Get a specific lesson by ID
+
+PUT /lessons/{lesson_id}
+   Update a lesson
+   Request body: same as POST (all fields required)
+
+DELETE /lessons/{lesson_id}
+   Delete a lesson
+
+================================================================================
+API ENDPOINTS - COMPLEX QUERIES
+================================================================================
+
+GET /lessons/by-teacher-date/
+   Get lessons for a specific teacher on a specific date
+   Query params:
+      teacher_id=1 (required)
+      date_str=2025-12-04 (required, format: YYYY-MM-DD)
+   
+GET /lessons-detailed/
+   Get lessons with teacher and subject details (JOIN query)
+   Query params:
+      skip=0
+      limit=10
+   Response includes: id, date, time, classroom, group, lesson_type, 
+                      teacher_id, teacher_name, subject_id, subject_name
+
+POST /lessons/update-prolific-teachers/
+   Update lessons for teachers with at least N lessons
+   Request body:
+   {
+     "min_lesson_count": 5,
+     "new_classroom": "Room 105"
+   }
+   Returns: message and count of updated lessons
+
+GET /teachers/lesson-counts/
+   Get count of lessons per teacher (GROUP BY query)
+   Response: List of {teacher_id, teacher_name, lesson_count}
+
+GET /lessons-paginated/
+   Get lessons with sorting and pagination
+   Query params:
+      skip=0
+      limit=10
+      sort_by=date (or "time" or "classroom")
+      order=asc (or "desc")
+
+GET /subjects/search/
+   Search subjects by name or metadata->>'description' using trigram similarity
+   Requires pg_trgm extension and migration 0003
+   Query params:
+      q=math (required, minimum length 1)
+      skip=0
+      limit=20
+   Returns: List of matching subjects with id, name, metadata
+
+================================================================================
+DATABASE MIGRATIONS
+================================================================================
+
+MIGRATION STRUCTURE
+   Directory: alembic/versions/
+   Files:
+   - 0001_add_columns.py: Adds email to teachers, metadata JSONB to subjects
+   - 0002_add_indexes.py: Adds indexes on teachers.full_name and lessons(date, time)
+   - 0003_add_trgm_indexes.py: Enables pg_trgm and creates GIN trigram indexes
+
+APPLY MIGRATIONS
+   python run_migrations.py
+
+VIEW MIGRATION STATUS
+   alembic current
+
+CREATE NEW MIGRATION
+   alembic revision --autogenerate -m "migration description"
+   Then edit alembic/versions/{rev_id}_migration_description.py
+   Apply with: python run_migrations.py
+
+ROLLBACK MIGRATION
+   To rollback the latest migration:
+   alembic downgrade -1
+
+================================================================================
+PROJECT STRUCTURE
+================================================================================
+
+app/
+├── __init__.py
+├── models/
+│   ├── __init__.py
+│   ├── base.py              (Shared SQLAlchemy declarative base)
+│   ├── lesson.py            (Lesson ORM model)
+│   ├── teacher.py           (Teacher ORM model)
+│   └── subject.py           (Subject ORM model with JSONB metadata)
+├── routers/
+│   ├── __init__.py
+│   ├── app.py               (FastAPI app and router registration)
+│   ├── lesson.py            (Lesson CRUD endpoints)
+│   ├── teacher.py           (Teacher CRUD endpoints)
+│   ├── subject.py           (Subject CRUD endpoints)
+│   └── queries.py           (Complex query endpoints + search)
+├── schema/
+│   ├── __init__.py
+│   ├── lesson.py            (Pydantic schemas for lessons)
+│   ├── teacher.py           (Pydantic schemas for teachers)
+│   └── subject.py           (Pydantic schemas for subjects)
+├── deps.py                  (Dependency injection - get_db)
+└── utils/
+    ├── __init__.py
+    └── pagination.py        (Pagination utilities)
+
+alembic/
+├── versions/
+│   ├── 0001_add_columns.py
+│   ├── 0002_add_indexes.py
+│   └── 0003_add_trgm_indexes.py
+└── env.py
+
+database.py                 (SQLAlchemy engine and session setup)
+create_tables.py            (Create tables from models)
+init_db.py                  (Initialize database and role)
+run_migrations.py           (Run Alembic migrations)
+seeder.py                   (Populate database with sample data)
+requirements.txt            (Python dependencies)
+.gitignore                  (Git ignore file)
+GUIDELINE.txt               (This file)
+
+================================================================================
+EXAMPLE WORKFLOWS
+================================================================================
+
+WORKFLOW 1: Initial Setup
+   1. source venv/bin/activate
+   2. python init_db.py
+   3. python create_tables.py
+   4. python run_migrations.py
+   5. python seeder.py
+   6. uvicorn app.routers.app:app --reload --host 0.0.0.0 --port 8000
+
+WORKFLOW 2: Add a Teacher and Their Lessons
+   1. POST /teachers with teacher data
+   2. POST /subjects (if needed)
+   3. POST /lessons (multiple times, referencing the teacher_id and subject_id)
+   4. GET /lessons/by-teacher-date/?teacher_id=X&date_str=YYYY-MM-DD (to verify)
+
+WORKFLOW 3: Search Subjects and Get Details
+   1. GET /subjects/search/?q=mathematics
+   2. Use returned subject_id to query or update
+   3. GET /subjects/{subject_id} for full details
+
+WORKFLOW 4: Analyze Teacher Workload
+   1. GET /teachers/lesson-counts/ (see lesson counts per teacher)
+   2. POST /lessons/update-prolific-teachers/ to update lessons for busy teachers
+   3. GET /lessons-paginated/?sort_by=date&order=desc to verify
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+ERROR: psycopg2.OperationalError: password authentication failed
+   Solution: Check .env file credentials match your PostgreSQL setup
+   
+ERROR: No such table 'lessons'
+   Solution: Run python create_tables.py to create tables from models
+   
+ERROR: Could not find module for extension pg_trgm
+   Solution: PostgreSQL pg_trgm extension not installed. 
+   On Ubuntu: sudo apt-get install postgresql-contrib
+   Then run: python run_migrations.py (to enable extension)
+
+ERROR: Server returns 404 for endpoints
+   Solution: Ensure uvicorn is running with the correct entrypoint:
+   uvicorn app.routers.app:app --reload
+
+ERROR: FOREIGN KEY constraint failed
+   Solution: When creating a lesson, ensure teacher_id and subject_id exist.
+   Check with: GET /teachers and GET /subjects
+
+================================================================================
+TESTING WITH CURL
+================================================================================
+
+Create a teacher:
+   curl -X POST "http://localhost:8000/teachers" \
+     -H "Content-Type: application/json" \
+     -d '{"full_name":"Jane Smith","department":"Physics","position":"Professor","degree":"PhD","email":"jane@example.com"}'
+
+List teachers (paginated):
+   curl "http://localhost:8000/teachers?skip=0&limit=10"
+
+Get lessons by teacher and date:
+   curl "http://localhost:8000/lessons/by-teacher-date/?teacher_id=1&date_str=2025-12-04"
+
+Search subjects by name:
+   curl "http://localhost:8000/subjects/search/?q=math&limit=20"
+
+Update prolific teachers:
+   curl -X POST "http://localhost:8000/lessons/update-prolific-teachers/" \
+     -H "Content-Type: application/json" \
+     -d '{"min_lesson_count":5,"new_classroom":"Room 200"}'
+
+================================================================================
+USEFUL COMMANDS
+================================================================================
+
+Activate virtual environment:
+   source venv/bin/activate
+
+Deactivate virtual environment:
+   deactivate
+
+Check Python packages:
+   pip list
+
+Freeze current dependencies:
+   pip freeze > requirements.txt
+
+Access PostgreSQL:
+   psql -U timetable_user -d timetable_db -h 127.0.0.1
+
+View Swagger API documentation:
+   Open browser to: http://localhost:8000/docs
+
+View ReDoc documentation:
+   Open browser to: http://localhost:8000/redoc
+
+Stop the server:
+   Ctrl+C
+
+Restart server with fresh database (development only):
+   dropdb -U timetable_user timetable_db
+   python init_db.py
+   python create_tables.py
+   python run_migrations.py
+
+================================================================================
